@@ -264,12 +264,14 @@ Run tests:
    ./gradlew assembleRelease
    ```
 
-## 🛠️ Troubleshooting
+### Troubleshooting
 
 ### Gradle Build Fails
 - Ensure JDK 17 is installed and `JAVA_HOME` is set correctly
 - Run: `./gradlew clean` then rebuild
 - Delete `.gradle` folder and sync again
+
+**Note:** If building in an environment with restricted network access (e.g., some CI systems or corporate networks), you may encounter issues accessing `dl.google.com` or `maven.google.com`. The GitHub Actions workflow should work correctly as GitHub's infrastructure has proper connectivity to these repositories.
 
 ### Firebase Not Working
 - Verify `google-services.json` is in `app/` directory
