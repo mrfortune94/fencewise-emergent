@@ -25,7 +25,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: temurin
-          java-version: '11'
+          java-version: '17'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v2
@@ -38,20 +38,22 @@ jobs:
             emulator
 
       - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
+        run: chmod +x ./FenceWiseApp/gradlew
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
+        working-directory: ./FenceWiseApp
 
       # If you want a release build (signed):
       - name: Build Release APK
         if: env.ANDROID_KEYSTORE != ''
         run: ./gradlew assembleRelease
+        working-directory: ./FenceWiseApp
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v3
         with:
           name: Fencewise-Emergent-apk
           path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release.apk
+            FenceWiseApp/app/build/outputs/apk/debug/app-debug.apk
+            FenceWiseApp/app/build/outputs/apk/release/app-release.apk
