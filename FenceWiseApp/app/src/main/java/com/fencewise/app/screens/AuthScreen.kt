@@ -20,7 +20,12 @@ fun AuthScreen(onAuthSuccess: () -> Unit) {
     // Try to get Firebase Auth instance, fallback to mock if not available
     val auth = try {
         FirebaseAuth.getInstance()
+    } catch (e: IllegalStateException) {
+        // Firebase not initialized - likely missing google-services.json
+        null
     } catch (e: Exception) {
+        // Other Firebase initialization errors - log for debugging
+        android.util.Log.w("AuthScreen", "Firebase Auth initialization failed", e)
         null
     }
 
