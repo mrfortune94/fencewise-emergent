@@ -77,7 +77,41 @@ agenthub/agents/youtube/db
 .cache/
 
 # Mobile development
-android-sdk/ -e 
+android-sdk/
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+.gradle/
+build/
+local.properties
+captures/
+.navigation/
+*.iml
+.externalNativeBuild/
+.cxx/
+
+# Android Studio
+.idea/
+*.iws
+*.ipr
+*~
+*.swp
+
+# Firebase - keep mock, ignore real google-services.json
+FenceWiseApp/app/google-services.json
+!FenceWiseApp/app/google-services.mock.json
+
+# Keystore files
+*.jks
+*.keystore
+
 # Environment files
 *.env
 *.env.*
