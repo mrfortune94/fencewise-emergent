@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       # Set these if you use keystore signing; remove if debug build only
       ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
