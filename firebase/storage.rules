@@ -1,0 +1,76 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check user authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check user role
+    function getUserRole() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'Admin';
+    }
+    
+    function isSupervisor() {
+      return isAuthenticated() && getUserRole() == 'Supervisor';
+    }
+    
+    function isWorker() {
+      return isAuthenticated() && getUserRole() == 'Worker';
+    }
+    
+    // User profile photos
+    match /users/{userId}/profile/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Job-related files and photos
+    match /jobs/{jobId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isSupervisor();
+    }
+    
+    // Job photos uploaded by workers
+    match /jobs/{jobId}/photos/{fileName} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin() || isSupervisor();
+    }
+    
+    // Timesheet attachments
+    match /timesheets/{timesheetId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Client documents - Admin and Supervisor only
+    match /clients/{clientId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isSupervisor();
+    }
+    
+    // Reports - PDF and other documents
+    match /reports/{reportId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isSupervisor();
+    }
+    
+    // Chat attachments
+    match /chat/{messageId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Default deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
