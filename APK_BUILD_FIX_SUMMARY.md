@@ -3,23 +3,30 @@
 ## What Was Fixed
 
 The APK build was failing because:
-1. Firebase dependencies could not be resolved (version was blank)
-2. The mock Firebase configuration was being used, which doesn't work properly
-3. The GitHub Actions workflow was missing the step to provide the real Firebase configuration
+1. **Gradle repository configuration conflict** - Root `build.gradle.kts` defined repositories with `allprojects` which conflicts with modern Gradle's `FAIL_ON_PROJECT_REPOS` setting
+2. This conflict caused Firebase dependencies to not resolve properly (versions were blank)
+3. The mock Firebase configuration was being used, which doesn't work properly
+4. The GitHub Actions workflow was missing the step to provide the real Firebase configuration
 
 ## Changes Made
 
-### 1. Removed Mock Services
+### 1. Fixed Gradle Configuration (Latest Fix)
+- **Deleted:** Root `build.gradle.kts` file that was causing repository conflicts
+- **Updated:** `FenceWiseApp/build.gradle.kts` to remove duplicate repository declarations
+- **Result:** Repositories are now only defined in `settings.gradle.kts` following modern Gradle best practices
+- **Impact:** Firebase BOM (Bill of Materials) can now properly resolve dependency versions
+
+### 2. Removed Mock Services
 - **File:** `FenceWiseApp/app/build.gradle.kts`
 - **Change:** Removed the `ensureGoogleServices` task that automatically copied mock google-services.json
 - **Reason:** Mock Firebase doesn't work for real app features; real Firebase is required
 
-### 2. Updated CI/CD Workflow
+### 3. Updated CI/CD Workflow
 - **File:** `.github/workflows/android.yml`
 - **Change:** Added step to decode Firebase configuration from GitHub secret
 - **Result:** Workflow will now fail with clear error if secret is not set
 
-### 3. Added Documentation
+### 4. Added Documentation
 - **New File:** `FIREBASE_SETUP.md` - Complete setup guide
 - **Updated:** `README_FenceWiseApp.md` - Clarified Firebase is required, not optional
 
