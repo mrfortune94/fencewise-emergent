@@ -65,9 +65,9 @@ The app is configured with Firebase services:
    cd fencewise-emergent/FenceWiseApp
    ```
 
-2. **Firebase Configuration (Optional for Development)**
+2. **Firebase Configuration (Required)**
    
-   The app can build and run without Firebase configuration using a mock setup. For full Firebase functionality:
+   ⚠️ **Real Firebase configuration is required for the app to function.** The mock setup has been removed.
    
    a. Download `google-services.json` from Firebase Console:
       - Go to: https://console.firebase.google.com/
@@ -80,7 +80,7 @@ The app is configured with Firebase services:
       cp ~/Downloads/google-services.json FenceWiseApp/app/google-services.json
       ```
    
-   **Note:** A mock `google-services.json` is automatically used if the real file is missing during Debug builds.
+   **Important:** Without the real Firebase configuration file, the build will fail.
 
 3. **Build the app**
    
@@ -104,6 +104,8 @@ The app is configured with Firebase services:
 
 ## 🔐 GitHub Actions CI/CD Setup
 
+⚠️ **The `FIREBASE_GOOGLE_SERVICES_JSON_BASE64` secret is required for builds to succeed.**
+
 ### Setting up the Secret
 
 To enable automatic APK builds via GitHub Actions with real Firebase configuration:
@@ -117,7 +119,7 @@ To enable automatic APK builds via GitHub Actions with real Firebase configurati
    
    On Windows (PowerShell):
    ```powershell
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes("google-services.json")) > google-services-base64.txt
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("google-services.json")) | Out-File -Encoding ASCII google-services-base64.txt
    ```
 
 2. **Add the secret to GitHub:**
@@ -129,17 +131,17 @@ To enable automatic APK builds via GitHub Actions with real Firebase configurati
 
 3. **Trigger a build:**
    - Push to `main` branch, or
-   - Go to Actions tab → "Android APK Build" → "Run workflow"
+   - Go to Actions tab → "Build Android APK" → "Run workflow"
 
 ### Downloading the APK Artifact
 
 1. Go to: https://github.com/mrfortune94/fencewise-emergent/actions
 2. Click on the latest successful workflow run
 3. Scroll to "Artifacts" section
-4. Download `FenceWise_v1.0_debug`
+4. Download `Fencewise-Emergent-apk`
 5. Extract and install the APK on your Android device
 
-**Note:** If the `FIREBASE_GOOGLE_SERVICES_JSON_BASE64` secret is not set, the build will use the mock Firebase configuration automatically.
+**Note:** If the `FIREBASE_GOOGLE_SERVICES_JSON_BASE64` secret is not set, the build will fail with an error message. Real Firebase configuration is required.
 
 ## 📱 App Structure
 
@@ -268,10 +270,11 @@ Run tests:
 
 ### Gradle Build Fails
 - Ensure JDK 17 is installed and `JAVA_HOME` is set correctly
+- Ensure `google-services.json` is present in `FenceWiseApp/app/` directory
 - Run: `./gradlew clean` then rebuild
 - Delete `.gradle` folder and sync again
 
-**Note:** If building in an environment with restricted network access (e.g., some CI systems or corporate networks), you may encounter issues accessing `dl.google.com` or `maven.google.com`. The GitHub Actions workflow should work correctly as GitHub's infrastructure has proper connectivity to these repositories.
+**Note:** Real Firebase configuration is required. The build will fail if `google-services.json` is missing.
 
 ### Firebase Not Working
 - Verify `google-services.json` is in `app/` directory
