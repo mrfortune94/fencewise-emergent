@@ -98,21 +98,3 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
-
-// Task to copy mock google-services.json when real one is missing (Debug builds only)
-tasks.register("ensureGoogleServices") {
-    doLast {
-        val googleServicesFile = file("google-services.json")
-        val mockFile = file("google-services.mock.json")
-        
-        if (!googleServicesFile.exists() && mockFile.exists()) {
-            println("Real google-services.json not found. Using mock file for development.")
-            mockFile.copyTo(googleServicesFile, overwrite = false)
-        }
-    }
-}
-
-// Run before processing google services
-tasks.named("preBuild") {
-    dependsOn("ensureGoogleServices")
-}

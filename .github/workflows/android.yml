@@ -42,6 +42,18 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./FenceWiseApp/gradlew
 
+      - name: Prepare google-services.json
+        env:
+          FIREBASE_CONFIG: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -z "$FIREBASE_CONFIG" ]; then
+            echo "Error: FIREBASE_GOOGLE_SERVICES_JSON_BASE64 secret is not set"
+            echo "Please add your Firebase configuration to repository secrets"
+            exit 1
+          fi
+          echo "Decoding Firebase configuration from secrets"
+          echo "$FIREBASE_CONFIG" | base64 -d > ./FenceWiseApp/app/google-services.json
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug
         working-directory: ./FenceWiseApp
