@@ -15,3 +15,4 @@ buildscript {
 tasks.register("clean", Delete::class) {
     delete(rootProject.layout.buildDirectory)
 }
+id 'com.google.gms.google-services' version '4.4.4' apply plementation 'com.google.firebase:firebase-analytics'id 'com.google.gms.google-services'id 'com.android.application'
