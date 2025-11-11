@@ -15,11 +15,3 @@ buildscript {
 tasks.register("clean", Delete::class) {
     delete(rootProject.layout.buildDirectory)
 }
-
-// Ensure all modules get google() and mavenCentral()
-subprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
