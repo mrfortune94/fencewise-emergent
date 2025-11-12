@@ -8,24 +8,34 @@ Your Android app was failing to build (10+ times in a row) because of a Gradle r
 
 ## What I Fixed
 
-I removed the conflicting Gradle configuration files that were preventing Firebase dependencies from resolving properly:
+The issue required two iterations to resolve:
 
 ### Changes Made:
 1. **Deleted** `build.gradle.kts` from repository root
    - This file was defining repositories with `allprojects { }` 
-   - It conflicted with the modern Gradle `FAIL_ON_PROJECT_REPOS` setting
+   - It conflicted with the Gradle `FAIL_ON_PROJECT_REPOS` setting
 
-2. **Updated** `FenceWiseApp/build.gradle.kts`
-   - Removed duplicate repository declarations from `buildscript { }`
-   - Repositories are now only defined in `settings.gradle.kts` (the correct place)
+2. **Updated** `FenceWiseApp/build.gradle.kts` (Fix #1 - Reverted in Fix #2)
+   - Initially removed repositories from `buildscript { }`
+   - **Then added them back** - buildscript needs repositories to resolve plugin classpaths
 
-3. **Updated documentation** in `APK_BUILD_FIX_SUMMARY.md`
+3. **Updated** `FenceWiseApp/settings.gradle.kts`
+   - Changed from `FAIL_ON_PROJECT_REPOS` to `PREFER_PROJECT`
+   - This allows buildscript to have its own repositories while preferring settings for project dependencies
+
+4. **Updated documentation** in `APK_BUILD_FIX_SUMMARY.md`
 
 ## Why This Fixes It
 
-Modern Gradle (the build system) uses a centralized repository configuration in `settings.gradle.kts`. When multiple files tried to define repositories, Gradle got confused and couldn't resolve the Firebase Bill of Materials (BOM) version 34.4.0, which manages all Firebase dependency versions.
+The buildscript block needs repositories to resolve plugin classpaths (Android Gradle Plugin, Kotlin plugin, Google Services plugin). When we removed those repositories entirely:
+1. Plugins couldn't be resolved
+2. Without plugins, the Firebase BOM couldn't work
+3. Firebase dependencies ended up with empty versions
 
-Now that repositories are only defined in one place, the Firebase BOM can work correctly and provide versions for all Firebase libraries.
+The solution is to use `PREFER_PROJECT` mode, which:
+- Allows buildscript to define repositories for plugin resolution
+- Still prefers settings.gradle.kts repositories for project dependencies
+- Enables Firebase BOM version 34.4.0 to properly manage Firebase library versions
 
 ## What You Need To Do
 
