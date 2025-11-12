@@ -54,7 +54,7 @@ android {
 
 dependencies {
     // Firebase BOM for version management
-    implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
+    implementation(enforcedPlatform("com.google.firebase:firebase-bom:34.4.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
