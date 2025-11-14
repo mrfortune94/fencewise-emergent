@@ -46,12 +46,16 @@ jobs:
         env:
           FIREBASE_CONFIG: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
-          if [ -z "$FIREBASE_CONFIG" ]; then
-            echo "Missing FIREBASE_CONFIG secret"
+          if [ -n "$FIREBASE_CONFIG" ]; then
+            echo "Decoding Firebase configuration from secrets"
+            echo "$FIREBASE_CONFIG" | base64 -d > ./FenceWiseApp/app/google-services.json
+          elif [ -f ./FenceWiseApp/app/google-services.json ]; then
+            echo "Using google-services.json from repository"
+          else
+            echo "ERROR: No Firebase configuration found!"
+            echo "Either set FIREBASE_GOOGLE_SERVICES_JSON_BASE64 secret or commit google-services.json"
             exit 1
           fi
-          echo "Decoding Firebase configuration from secrets"
-          echo "$FIREBASE_CONFIG" | base64 -d > ./FenceWiseApp/app/google-services.json
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
