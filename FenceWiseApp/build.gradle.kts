@@ -1,9 +1,8 @@
-// Top-level build.gradle.kts for FenceWise
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
     repositories {
         google()
         mavenCentral()
-        gradlePluginPortal() // ✅ this line fixes the missing plugin issue
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.5.2")
@@ -13,6 +12,6 @@ buildscript {
     }
 }
 
-tasks.register<Delete>("clean") {
+tasks.register("clean", Delete::class) {
     delete(rootProject.layout.buildDirectory)
 }

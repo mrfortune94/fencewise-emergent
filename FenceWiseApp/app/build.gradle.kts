@@ -53,6 +53,18 @@ android {
 }
 
 dependencies {
+<<<<<<< HEAD
+<<<<<<< HEAD
+    // Firebase BOM for version management
+    implementation(enforcedPlatform("com.google.firebase:firebase-bom:34.4.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-messaging")
+=======
+=======
+>>>>>>> origin/main
     // Core Android
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
@@ -76,6 +88,7 @@ dependencies {
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
+>>>>>>> origin/main
 
     // Testing
     testImplementation("junit:junit:4.13.2")
