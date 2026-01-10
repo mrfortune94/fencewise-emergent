@@ -80,7 +80,7 @@ export default function LoginScreen() {
             onPress={() => router.push('/(auth)/register')}
             style={styles.linkButton}
           >
-            Don't have an account? Register
+            Don&apos;t have an account? Register
           </Button>
         </Surface>
       </ScrollView>
