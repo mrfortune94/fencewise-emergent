@@ -46,15 +46,43 @@ jobs:
         env:
           FIREBASE_CONFIG: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
+          TARGET_FILE="./FenceWiseApp/app/google-services.json"
+          TEMP_FILE="./FenceWiseApp/app/google-services.json.tmp"
+          USE_REPO_FILE=false
+          
           if [ -n "$FIREBASE_CONFIG" ]; then
             echo "Decoding Firebase configuration from secrets"
-            echo "$FIREBASE_CONFIG" | base64 -d > ./FenceWiseApp/app/google-services.json
-          elif [ -f ./FenceWiseApp/app/google-services.json ]; then
-            echo "Using google-services.json from repository"
+            if ! echo "$FIREBASE_CONFIG" | base64 -d > "$TEMP_FILE" 2>/dev/null; then
+              echo "WARNING: Failed to decode base64 secret"
+              rm -f "$TEMP_FILE"
+              USE_REPO_FILE=true
+            else
+              decoded_size=$(stat -c%s "$TEMP_FILE" 2>/dev/null || echo 0)
+              echo "Decoded file size: $decoded_size bytes"
+              # Validate the decoded JSON file
+              if validation_error=$(jq empty "$TEMP_FILE" 2>&1); then
+                echo "Decoded google-services.json is valid"
+                mv "$TEMP_FILE" "$TARGET_FILE"
+              else
+                echo "WARNING: Decoded google-services.json is invalid"
+                echo "Validation error: $validation_error"
+                rm -f "$TEMP_FILE"
+                USE_REPO_FILE=true
+              fi
+            fi
           else
-            echo "ERROR: No Firebase configuration found!"
-            echo "Either set FIREBASE_GOOGLE_SERVICES_JSON_BASE64 secret or commit google-services.json"
-            exit 1
+            USE_REPO_FILE=true
+          fi
+          
+          # Use repository file if secret was not available or invalid
+          if [ "$USE_REPO_FILE" = true ]; then
+            if [ -f "$TARGET_FILE" ] && [ -s "$TARGET_FILE" ]; then
+              echo "Using google-services.json from repository"
+            else
+              echo "ERROR: No valid Firebase configuration found!"
+              echo "Either set FIREBASE_GOOGLE_SERVICES_JSON_BASE64 secret or commit google-services.json"
+              exit 1
+            fi
           fi
 
       - name: Build Debug APK
