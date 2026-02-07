@@ -382,7 +382,7 @@ private fun parseTextRecord(record: NdefRecord): String {
     if (payload.isEmpty()) return ""
     
     val textEncoding = if ((payload[0].toInt() and 128) == 0) "UTF-8" else "UTF-16"
-    val languageCodeLength = payload[0].toInt() and 51
+    val languageCodeLength = payload[0].toInt() and 0x3F // Lower 6 bits for language code length
     
     return try {
         String(
@@ -437,7 +437,8 @@ private fun createTextRecord(text: String): NdefMessage {
     val languageLength = languageBytes.size
     val payload = ByteArray(1 + languageLength + textLength)
     
-    payload[0] = languageLength.toByte()
+    // Status byte: bit 7 = 0 for UTF-8, bits 0-5 = language code length
+    payload[0] = (languageLength and 0x3F).toByte()
     System.arraycopy(languageBytes, 0, payload, 1, languageLength)
     System.arraycopy(textBytes, 0, payload, 1 + languageLength, textLength)
     
