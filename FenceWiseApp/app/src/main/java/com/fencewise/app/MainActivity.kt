@@ -1,5 +1,7 @@
 package com.fencewise.app
 
+import android.content.Intent
+import android.nfc.NfcAdapter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -30,6 +32,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
 }
 
 @Composable
@@ -59,6 +66,9 @@ fun FenceWiseApp() {
                 composable(Screen.Timesheets.route) {
                     TimesheetsScreen()
                 }
+                composable(Screen.NFC.route) {
+                    NFCScreen()
+                }
                 composable(Screen.Chat.route) {
                     ChatScreen()
                 }
@@ -72,7 +82,7 @@ fun BottomNavigationBar(navController: NavHostController) {
     val items = listOf(
         BottomNavItem("Dashboard", Screen.Dashboard.route, Icons.Default.Dashboard),
         BottomNavItem("Jobs", Screen.Jobs.route, Icons.Default.Work),
-        BottomNavItem("Timesheets", Screen.Timesheets.route, Icons.Default.Schedule),
+        BottomNavItem("NFC", Screen.NFC.route, Icons.Default.Nfc),
         BottomNavItem("Chat", Screen.Chat.route, Icons.Default.Chat)
     )
 
