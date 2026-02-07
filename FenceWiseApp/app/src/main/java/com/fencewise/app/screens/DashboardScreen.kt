@@ -12,7 +12,9 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    onNfcClick: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -78,6 +80,23 @@ fun DashboardScreen() {
                     modifier = Modifier.weight(1f)
                 )
             }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DashboardCard(
+                    title = "NFC Reader",
+                    icon = Icons.Default.Nfc,
+                    onClick = onNfcClick,
+                    modifier = Modifier.weight(1f)
+                )
+                DashboardCard(
+                    title = "Settings",
+                    icon = Icons.Default.Settings,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
@@ -87,7 +106,8 @@ fun DashboardScreen() {
 fun DashboardCard(
     title: String,
     icon: ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Card(
         modifier = modifier
@@ -95,7 +115,7 @@ fun DashboardCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         ),
-        onClick = { /* TODO: Navigate to feature */ }
+        onClick = onClick
     ) {
         Column(
             modifier = Modifier
