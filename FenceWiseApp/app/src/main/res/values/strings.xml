@@ -41,4 +41,29 @@
     <!-- Chat -->
     <string name="chat_title">Team Chat</string>
     <string name="chat_placeholder">Chat functionality coming soon</string>
+    
+    <!-- NFC -->
+    <string name="nav_nfc">NFC</string>
+    <string name="nfc_title">NFC Tag Manager</string>
+    <string name="nfc_read_tag">Scan NFC Tag</string>
+    <string name="nfc_saved_tags">Saved Tags</string>
+    <string name="nfc_emulation_service_desc">NFC Card Emulation Service</string>
+    <string name="nfc_aid_group_desc">FenceWise NFC Tag Emulator</string>
+    <string name="nfc_no_tags">No tags saved yet</string>
+    <string name="nfc_scanning">Hold phone near NFC tag to scan</string>
+    <string name="nfc_tag_read_success">Tag read successfully!</string>
+    <string name="nfc_tag_saved">Tag saved</string>
+    <string name="nfc_not_supported">NFC not supported on this device</string>
+    <string name="nfc_disabled">NFC is disabled. Please enable it in settings.</string>
+    <string name="nfc_tag_name">Tag Name</string>
+    <string name="nfc_tag_uid">UID:</string>
+    <string name="nfc_tag_tech">Technology:</string>
+    <string name="nfc_tag_size">Size:</string>
+    <string name="nfc_tag_data">Data:</string>
+    <string name="nfc_emulate_tag">Emulate Tag</string>
+    <string name="nfc_delete_tag">Delete</string>
+    <string name="nfc_rename_tag">Rename</string>
+    <string name="nfc_emulating">Emulating tag…</string>
+    <string name="nfc_stop_emulating">Stop Emulating</string>
+    <string name="nfc_enable_nfc">Enable NFC</string>
 </resources>
