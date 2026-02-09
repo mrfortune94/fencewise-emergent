@@ -23,12 +23,70 @@ import com.fencewise.app.screens.*
 import com.fencewise.app.ui.theme.FenceWiseTheme
 
 class MainActivity : ComponentActivity() {
+    private var nfcAdapter: NfcAdapter? = null
+    private var pendingIntent: PendingIntent? = null
+    private val nfcTagState = mutableStateOf<Tag?>(null)
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize NFC adapter
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+        
+        // Create pending intent for NFC
+        val intent = Intent(this, javaClass).apply {
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        pendingIntent = PendingIntent.getActivity(
+            this, 
+            0, 
+            intent, 
+            PendingIntent.FLAG_MUTABLE
+        )
+        
+        // Handle NFC intent if launched from NFC tag
+        handleNfcIntent(intent)
+        
         enableEdgeToEdge()
         setContent {
             FenceWiseTheme {
-                FenceWiseApp()
+                FenceWiseApp(nfcTagState.value) {
+                    nfcTagState.value = null
+                }
+            }
+        }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Enable foreground dispatch for NFC
+        nfcAdapter?.enableForegroundDispatch(
+            this,
+            pendingIntent,
+            null,
+            null
+        )
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // Disable foreground dispatch
+        nfcAdapter?.disableForegroundDispatch(this)
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleNfcIntent(intent)
+    }
+    
+    private fun handleNfcIntent(intent: Intent) {
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED == intent.action ||
+            NfcAdapter.ACTION_TAG_DISCOVERED == intent.action ||
+            NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
+            
+            val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            tag?.let {
+                nfcTagState.value = it
             }
         }
     }
@@ -40,7 +98,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun FenceWiseApp() {
+fun FenceWiseApp(
+    nfcTag: Tag?,
+    onClearNfcTag: () -> Unit
+) {
     val navController = rememberNavController()
     var isAuthenticated by remember { mutableStateOf(false) }
 
@@ -58,7 +119,9 @@ fun FenceWiseApp() {
                 modifier = Modifier.padding(paddingValues)
             ) {
                 composable(Screen.Dashboard.route) {
-                    DashboardScreen()
+                    DashboardScreen(onNfcClick = {
+                        navController.navigate(Screen.NFC.route)
+                    })
                 }
                 composable(Screen.Jobs.route) {
                     JobsScreen()
@@ -71,6 +134,12 @@ fun FenceWiseApp() {
                 }
                 composable(Screen.Chat.route) {
                     ChatScreen()
+                }
+                composable(Screen.NFC.route) {
+                    NFCScreen(
+                        nfcTag = nfcTag,
+                        onClearTag = onClearNfcTag
+                    )
                 }
             }
         }
