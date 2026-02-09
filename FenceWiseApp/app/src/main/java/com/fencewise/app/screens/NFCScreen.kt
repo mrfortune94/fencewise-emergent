@@ -1,15 +1,17 @@
 package com.fencewise.app.screens
 
 import android.app.Activity
-import android.nfc.NdefMessage
-import android.nfc.NdefRecord
+import android.app.PendingIntent
+import android.content.Intent
+import android.content.IntentFilter
 import android.nfc.NfcAdapter
 import android.nfc.Tag
-import android.nfc.tech.Ndef
-import android.nfc.tech.NdefFormatable
+import android.nfc.tech.*
+import android.provider.Settings
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,356 +21,307 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.nio.charset.Charset
+import com.fencewise.app.data.NFCTag
+import com.fencewise.app.data.NFCTagStorage
+import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NFCScreen(
-    nfcTag: Tag?,
-    onClearTag: () -> Unit
-) {
+fun NFCScreen() {
     val context = LocalContext.current
     val activity = context as? Activity
     val nfcAdapter = remember { NfcAdapter.getDefaultAdapter(context) }
+    val storage = remember { NFCTagStorage(context) }
     
-    var nfcEnabled by remember { mutableStateOf(nfcAdapter?.isEnabled ?: false) }
-    var tagInfo by remember { mutableStateOf("") }
-    var ndefMessages by remember { mutableStateOf<List<String>>(emptyList()) }
-    var writeText by remember { mutableStateOf("") }
-    var statusMessage by remember { mutableStateOf("") }
-    var showWriteDialog by remember { mutableStateOf(false) }
+    var savedTags by remember { mutableStateOf(storage.loadTags()) }
+    var isScanning by remember { mutableStateOf(false) }
+    var scanMessage by remember { mutableStateOf("") }
+    var activeTagId by remember { mutableStateOf<String?>(storage.getActiveTag()?.id) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var tagToRename by remember { mutableStateOf<NFCTag?>(null) }
     
-    // Update NFC enabled status
-    LaunchedEffect(Unit) {
-        nfcEnabled = nfcAdapter?.isEnabled ?: false
-    }
+    // Check if NFC is supported and enabled
+    val nfcSupported = nfcAdapter != null
+    val nfcEnabled = nfcAdapter?.isEnabled == true
     
-    // Process NFC tag when it changes
-    LaunchedEffect(nfcTag) {
-        nfcTag?.let { tag ->
-            tagInfo = buildString {
-                append("Tag ID: ${tag.id.toHexString()}\n")
-                append("Tech List: ${tag.techList.joinToString(", ") { it.substringAfterLast('.') }}\n")
-            }
-            
-            // Try to read NDEF data
-            val ndef = Ndef.get(tag)
-            ndef?.let {
-                try {
-                    ndef.connect()
-                    val ndefMessage = ndef.ndefMessage
-                    ndefMessage?.let { msg ->
-                        val messages = msg.records.mapNotNull { record ->
-                            when (record.tnf) {
-                                NdefRecord.TNF_WELL_KNOWN -> {
-                                    if (record.type.contentEquals(NdefRecord.RTD_TEXT)) {
-                                        parseTextRecord(record)
-                                    } else {
-                                        "Well-known type: ${record.type.toHexString()}"
-                                    }
-                                }
-                                NdefRecord.TNF_MIME_MEDIA -> {
-                                    "MIME: ${String(record.type)}"
-                                }
-                                NdefRecord.TNF_ABSOLUTE_URI -> {
-                                    "URI: ${String(record.payload)}"
-                                }
-                                else -> "Unknown type"
-                            }
-                        }
-                        ndefMessages = messages
-                    }
-                    ndef.close()
-                } catch (e: Exception) {
-                    statusMessage = "Error reading tag: ${e.message}"
-                }
-            }
-        }
-    }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Text(
-            text = "NFC Reader/Writer",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // NFC Status Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (nfcEnabled) 
-                    MaterialTheme.colorScheme.primaryContainer 
-                else 
-                    MaterialTheme.colorScheme.errorContainer
+    // Handle NFC intent when tag is detected
+    DisposableEffect(activity) {
+        if (activity != null && nfcAdapter != null && nfcEnabled) {
+            val pendingIntent = PendingIntent.getActivity(
+                activity,
+                0,
+                Intent(activity, activity.javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_MUTABLE
             )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (nfcEnabled) Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = if (nfcEnabled) 
-                        MaterialTheme.colorScheme.primary 
-                    else 
-                        MaterialTheme.colorScheme.error
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "NFC Status",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (nfcEnabled) "NFC is enabled and ready" else "NFC is disabled - Enable in settings",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Instructions Card
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "How to Use",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "• Hold an NFC tag near your device to read it\n" +
-                           "• Tap 'Write to Tag' to write custom data\n" +
-                           "• NFC must be enabled in device settings",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Action Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = { showWriteDialog = true },
-                modifier = Modifier.weight(1f),
-                enabled = nfcEnabled
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Write to Tag")
-            }
             
-            OutlinedButton(
-                onClick = {
-                    onClearTag()
-                    tagInfo = ""
-                    ndefMessages = emptyList()
-                    statusMessage = ""
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Default.Clear, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Clear")
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Status Message
-        if (statusMessage.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Text(
-                    text = statusMessage,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-        
-        // Tag Information Card
-        if (tagInfo.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Nfc,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Tag Information",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = tagInfo,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                    )
-                }
-            }
+            val intentFilters = arrayOf(
+                IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED),
+                IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED),
+                IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)
+            )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            val techLists = arrayOf(
+                arrayOf(NfcA::class.java.name),
+                arrayOf(NfcB::class.java.name),
+                arrayOf(NfcF::class.java.name),
+                arrayOf(NfcV::class.java.name),
+                arrayOf(IsoDep::class.java.name),
+                arrayOf(Ndef::class.java.name),
+                arrayOf(NdefFormatable::class.java.name),
+                arrayOf(MifareClassic::class.java.name),
+                arrayOf(MifareUltralight::class.java.name)
+            )
+            
+            nfcAdapter.enableForegroundDispatch(activity, pendingIntent, intentFilters, techLists)
         }
         
-        // NDEF Messages Card
-        if (ndefMessages.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Description,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "NDEF Messages",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ndefMessages.forEachIndexed { index, message ->
-                        Text(
-                            text = "${index + 1}. $message",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        if (index < ndefMessages.size - 1) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-                    }
-                }
+        onDispose {
+            if (activity != null && nfcAdapter != null) {
+                nfcAdapter.disableForegroundDispatch(activity)
             }
         }
-        
-        // Show placeholder when no tag is scanned
-        if (tagInfo.isEmpty() && ndefMessages.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Nfc,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.outline
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = if (nfcEnabled) "Hold an NFC tag near your device" else "Enable NFC to get started",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.outline
-                    )
+    }
+    
+    // Handle NFC tag when scanned
+    LaunchedEffect(activity?.intent) {
+        activity?.intent?.let { intent ->
+            if (isScanning && (
+                intent.action == NfcAdapter.ACTION_NDEF_DISCOVERED ||
+                intent.action == NfcAdapter.ACTION_TECH_DISCOVERED ||
+                intent.action == NfcAdapter.ACTION_TAG_DISCOVERED
+            )) {
+                val tag: Tag? = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
+                tag?.let {
+                    val nfcTag = readNFCTag(it)
+                    storage.saveTag(nfcTag)
+                    savedTags = storage.loadTags()
+                    scanMessage = "Tag saved: ${nfcTag.name}"
+                    isScanning = false
+                    
+                    // Clear the intent to avoid re-reading
+                    intent.action = ""
                 }
             }
         }
     }
     
-    // Write Dialog
-    if (showWriteDialog) {
-        AlertDialog(
-            onDismissRequest = { showWriteDialog = false },
-            title = { Text("Write to NFC Tag") },
-            text = {
-                Column {
-                    Text("Enter text to write to the NFC tag:")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = writeText,
-                        onValueChange = { writeText = it },
-                        label = { Text("Text") },
-                        modifier = Modifier.fillMaxWidth()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("NFC Tag Manager") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            // NFC Status Card
+            if (!nfcSupported) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
                     )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "NFC not supported on this device",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
+            } else if (!nfcEnabled) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "NFC is disabled",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS))
+                            }
+                        ) {
+                            Text("Enable NFC")
+                        }
+                    }
+                }
+            }
+            
+            // Scan Button
+            if (nfcEnabled) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    border = if (isScanning) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Button(
+                            onClick = {
+                                isScanning = !isScanning
+                                scanMessage = if (isScanning) "Hold phone near NFC tag..." else ""
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isScanning) 
+                                    MaterialTheme.colorScheme.secondary 
+                                else 
+                                    MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(
+                                if (isScanning) Icons.Default.Stop else Icons.Default.Nfc,
+                                contentDescription = null
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isScanning) "Cancel Scanning" else "Scan NFC Tag")
+                        }
+                        
+                        if (scanMessage.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                scanMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Saved Tags Section
+            Text(
+                "Saved Tags (${savedTags.size})",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            
+            if (savedTags.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No tags saved yet",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(savedTags) { tag ->
+                        NFCTagCard(
+                            tag = tag,
+                            isActive = tag.id == activeTagId,
+                            onEmulate = {
+                                if (activeTagId == tag.id) {
+                                    storage.setActiveTag(null)
+                                    activeTagId = null
+                                } else {
+                                    storage.setActiveTag(tag.id)
+                                    activeTagId = tag.id
+                                }
+                            },
+                            onRename = {
+                                tagToRename = tag
+                                showRenameDialog = true
+                            },
+                            onDelete = {
+                                storage.deleteTag(tag.id)
+                                savedTags = storage.loadTags()
+                                if (activeTagId == tag.id) {
+                                    activeTagId = null
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    // Rename Dialog
+    if (showRenameDialog && tagToRename != null) {
+        var newName by remember { mutableStateOf(tagToRename?.name ?: "") }
+        
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename Tag") },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text("Tag Name") },
+                    singleLine = true
+                )
             },
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
-                        nfcTag?.let { tag ->
-                            val success = writeNfcTag(tag, writeText)
-                            if (success) {
-                                statusMessage = "Successfully wrote to tag!"
-                                writeText = ""
-                            } else {
-                                statusMessage = "Failed to write to tag"
-                            }
-                        } ?: run {
-                            statusMessage = "No tag detected. Hold a tag near the device and try again."
+                        if (newName.isNotBlank()) {
+                            storage.updateTagName(tagToRename?.id ?: "", newName)
+                            savedTags = storage.loadTags()
+                            showRenameDialog = false
                         }
-                        showWriteDialog = false
                     }
                 ) {
-                    Text("Write")
+                    Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showWriteDialog = false }) {
+                TextButton(onClick = { showRenameDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -376,72 +329,165 @@ fun NFCScreen(
     }
 }
 
-// Helper function to parse text record
-private fun parseTextRecord(record: NdefRecord): String {
-    val payload = record.payload
-    if (payload.isEmpty()) return ""
-    
-    val textEncoding = if ((payload[0].toInt() and 128) == 0) "UTF-8" else "UTF-16"
-    val languageCodeLength = payload[0].toInt() and 0x3F // Lower 6 bits for language code length
-    
-    return try {
-        String(
-            payload,
-            languageCodeLength + 1,
-            payload.size - languageCodeLength - 1,
-            Charset.forName(textEncoding)
-        )
-    } catch (e: Exception) {
-        "Error parsing text: ${e.message}"
-    }
-}
-
-// Helper function to convert byte array to hex string
-private fun ByteArray.toHexString(): String =
-    joinToString("") { "%02X".format(it) }
-
-// Function to write to NFC tag
-private fun writeNfcTag(tag: Tag, text: String): Boolean {
-    return try {
-        val ndefMessage = createTextRecord(text)
-        
-        val ndef = Ndef.get(tag)
-        if (ndef != null) {
-            ndef.connect()
-            ndef.writeNdefMessage(ndefMessage)
-            ndef.close()
-            true
-        } else {
-            // Try to format the tag if it's not NDEF formatted
-            val format = NdefFormatable.get(tag)
-            if (format != null) {
-                format.connect()
-                format.format(ndefMessage)
-                format.close()
-                true
-            } else {
-                false
+@Composable
+fun NFCTagCard(
+    tag: NFCTag,
+    isActive: Boolean,
+    onEmulate: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isActive) 
+                MaterialTheme.colorScheme.primaryContainer 
+            else 
+                MaterialTheme.colorScheme.surface
+        ),
+        border = if (isActive) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    tag.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                if (isActive) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            "EMULATING",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                "UID: ${tag.uid}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Tech: ${tag.technology}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Data: ${tag.dataHex.take(32)}${if (tag.dataHex.length > 32) "..." else ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Size: ${tag.data.size} bytes",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onEmulate,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isActive) 
+                            MaterialTheme.colorScheme.error 
+                        else 
+                            MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        if (isActive) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(if (isActive) "Stop" else "Emulate")
+                }
+                
+                IconButton(
+                    onClick = onRename
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Rename")
+                }
+                
+                IconButton(
+                    onClick = onDelete
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
-    } catch (e: Exception) {
-        false
     }
 }
 
-// Function to create NDEF text record
-private fun createTextRecord(text: String): NdefMessage {
-    val language = "en"
-    val textBytes = text.toByteArray()
-    val languageBytes = language.toByteArray(Charset.forName("US-ASCII"))
-    val textLength = textBytes.size
-    val languageLength = languageBytes.size
-    val payload = ByteArray(1 + languageLength + textLength)
+private fun readNFCTag(tag: Tag): NFCTag {
+    val tagId = tag.id
+    val uid = tagId.toHexString()
+    val techList = tag.techList.joinToString(", ") { it.substringAfterLast('.') }
     
-    // Status byte: bit 7 = 0 for UTF-8, bits 0-5 = language code length
-    payload[0] = (languageLength and 0x3F).toByte()
-    System.arraycopy(languageBytes, 0, payload, 1, languageLength)
-    System.arraycopy(textBytes, 0, payload, 1 + languageLength, textLength)
+    // Try to read data from the tag
+    var data = ByteArray(0)
     
-    val record = NdefRecord(NdefRecord.TNF_WELL_KNOWN, NdefRecord.RTD_TEXT, ByteArray(0), payload)
-    return NdefMessage(arrayOf(record))
+    // Try NDEF first
+    tag.techList.find { it.contains("Ndef") }?.let {
+        try {
+            val ndef = Ndef.get(tag)
+            ndef?.connect()
+            val ndefMessage = ndef?.ndefMessage
+            ndefMessage?.let { msg ->
+                data = msg.toByteArray()
+            }
+            ndef?.close()
+        } catch (e: Exception) {
+            // Ignore errors
+        }
+    }
+    
+    // If no NDEF data, use tag ID as data
+    if (data.isEmpty()) {
+        data = tagId
+    }
+    
+    val dataHex = data.toHexString()
+    val timestamp = System.currentTimeMillis()
+    val name = "NFC Tag ${Date(timestamp).toString().substring(4, 16)}"
+    val id = UUID.randomUUID().toString()
+    
+    return NFCTag(
+        id = id,
+        name = name,
+        uid = uid,
+        technology = techList,
+        data = data,
+        dataHex = dataHex,
+        timestamp = timestamp
+    )
+}
+
+private fun ByteArray.toHexString(): String {
+    return joinToString("") { "%02X".format(it) }
 }
